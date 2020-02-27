@@ -1,7 +1,7 @@
 /*
 COPYRIGHT Onigato, using the OLC-3 License
-SNEK v0.1.0
-Published Feb 24, 2020
+SNEK v0.1.3
+Published Feb 27, 2020
 
 License (OLC-3)
 	~~~~~~~~~~~~~~~
@@ -112,14 +112,36 @@ private:
 	//A pointer to the food object
 	food* noms = nullptr;
 	//cycleTime is the number of frames between play updates. countTime is the number of frames SINCE the last play update
-	int cycleTime = 1000;
-	int countTime = 0;
+	//cycleTime = 1.0 appears (on my home system) to be about 1 action per second in debug
+	float cycleTime = 1.0;
+	float countTime = 0.0;
 	//score has not yet been implemented
 	int score = 0;
 	//Two olc 2d vectors used to give things a position and direction. Each contains a .x member variable and a .y member variable
 	olc::vi2d newPos;
 	olc::vi2d newDir;
+	//Pause the game if we're dead
+	bool snekDead = false;
 
+	void reset()
+	{
+		Clear(olc::BLACK);
+		//Fully reset the game, even if the game hasn't started already!
+		vecCrawlie.clear();
+		vecTurns.clear();
+		cycleTime = 0.5;
+		score = 0;
+		if (noms != nullptr)
+			noms->exists = false;
+		//User starts in the middle, and with NO motion intially
+		newDir.x = 0;
+		newDir.y = 0;
+		newPos.x = (ScreenWidth() / 2);
+		newPos.y = (ScreenHeight() / 2);
+		//Actually make the first bit of snake
+		addSnekBit(newPos, newDir);
+		snekDead = false;
+	}
 
 	void addSnekBit(olc::vi2d inPos, olc::vi2d inDir)
 	{
@@ -166,6 +188,7 @@ private:
 
 	void snekTurnsUpdate()
 	{
+		//std::cout << "IN TURNSUPDATE" << std::endl;
 		//Fancy auto for loop. Update dir on all the bits of snake, based on IF they currently hit a turning point
 		//Probably inefficient, especially as the number of turns and bits IS going to get big over time
 		for (auto& tempBit : vecCrawlie)
@@ -178,19 +201,21 @@ private:
 
 	void snekChkEat(snake* snekBit)
 	{
+		bool snekAhead = ((snekBit->pos.x + snekBit->dir.x) == noms->pos.x && (snekBit->pos.y + snekBit->dir.y) == noms->pos.y);
+		bool snekCurrent = (snekBit->pos.x == noms->pos.x && snekBit->pos.y == noms->pos.y);
 		//Takes a snake* bit in
-		//Did the snake eat some food?
-		if (snekBit->pos.x == noms->pos.x && snekBit->pos.y == noms->pos.y && noms->exists && snekBit->head)
-		{
+		//Looks one step AHEAD of the snake, no longer at the exact spot the snake currently is.
+		//I can see potential ways to exploit this, but the alternative is a wierd ass bug where the player can phase through walls and survive somehow.
+		if (snekAhead || snekCurrent && noms->exists && snekBit->head)
+		{	//The snake ate some food
 			//Food ceases to exist for now
 			noms->exists = false;
-			//add a new bit of snake IN FRONT OF the current snake head. 
-			//Yes. This means you have to go ALONG walls to get food safely. Corners, I shudder to think about.
+			//add a new bit of snake IN FRONT OF the current snake head, on top of where the food used to be. 
 			addSnekBit((snekBit->pos + snekBit->dir), snekBit->dir);
-			//Shorten the cycle time, making the game slightly faster with each bit of food eaten, but clamp it so it never gets TOO fast
-			cycleTime -= 10;
-			if (cycleTime <= 50)
-				cycleTime = 50;
+			//Shorten the cycle time, making the game slightly faster with each bit of food eaten, but clamp it so it never gets TOO fast. 0.25 APPEARS to be about 4 updates/second.
+			cycleTime -= 0.05;
+			if (cycleTime <= 0.25)
+				cycleTime = 0.25;
 		}
 	}
 
@@ -201,7 +226,7 @@ private:
 		snake* head = nullptr;
 		//piece is the active piece
 		snake* piece = nullptr;
-		//Reverse iterator, C++17 or higher ONLY
+		//Reverse iterator, C++17 or higher ONLY please
 		for (auto it = vecCrawlie.crbegin(), end = vecCrawlie.crend(); it != end; ++it)
 		{
 			//Active piece is whatever the iterator is looking at
@@ -212,11 +237,13 @@ private:
 			//But it works. If the current piece ISN'T the head, and IS in the same space as the head, End Game
 			if (piece->pos.x == head->pos.x && piece->pos.y == head->pos.y && piece->head == false) 
 			{
+				snekDead = true;
 				return true;
 			}
 			//Hit a wall? End Game
-			if (piece->pos.x < 1 || piece->pos.x >(ScreenWidth() - 1) || piece->pos.y < 1 || piece->pos.y >(ScreenHeight() - 1))
+			if (piece->pos.x <= 1 || piece->pos.x >=(ScreenWidth() - 1) || piece->pos.y <= 1 || piece->pos.y >=(ScreenHeight() - 1))
 			{ 
+				snekDead = true;
 				return true; 
 			}
 		}
@@ -233,14 +260,8 @@ public:
 public:
 	bool OnUserCreate() override
 	{
-		//User starts in the middle, and with NO motion intially
-		newDir.x = 0;
-		newDir.y = 0;
-		newPos.x = (ScreenWidth() / 2);
-		newPos.y = (ScreenHeight() / 2);
-		//Actually make the first bit of snake
-		addSnekBit(newPos, newDir);
-		
+		//Technically, SET, but you gotta name it something that makes sense later, right?
+		reset();
 		//"randomly" put a bit of food somewhere on the screen, inside the walls. I think.
 		noms = new food((rand() % (ScreenWidth() - 2) + 1), (rand() % (ScreenHeight() - 2) + 1));
 			
@@ -254,37 +275,37 @@ public:
 			newDir.x = 0;
 			newDir.y = -1;
 			addTurn(newDir);
+			//std::cout << "UP" << std::endl;
 		}
 		if (GetKey(olc::A).bPressed || GetKey(olc::LEFT).bPressed)
 		{
 			newDir.x = -1;
 			newDir.y = 0;
 			addTurn(newDir);
+			//std::cout << "LEFT" << std::endl;
 		}
 		if (GetKey(olc::S).bPressed || GetKey(olc::DOWN).bPressed)
 		{
 			newDir.x = 0;
 			newDir.y = 1;
 			addTurn(newDir);
+			//std::cout << "DOWN" << std::endl;
 		}
 		if (GetKey(olc::D).bPressed || GetKey(olc::RIGHT).bPressed)
 		{
 			newDir.x = 1;
 			newDir.y = 0;
 			addTurn(newDir);
+			//std::cout << "RIGHT" << std::endl;
 		}
 		if (GetKey(olc::ESCAPE).bPressed) return false;//Esc to close
-		
-		//Needs to be tied to FPS somehow, but FPS is a private variable
-		//Slows the game down to reasonable levels on a fast machine, too much on a slower machine
-		if (countTime >= cycleTime)
+		//slows the clock slightly. 1.0 cycleTime = 1 action/second I think		
+		if (countTime > cycleTime && snekDead == false)
 		{
 			Clear(olc::BLACK);
-			//Reset the clock
-			countTime = countTime - (cycleTime + fElapsedTime);
 			//Set all the bits .dir data correctly
 			snekTurnsUpdate();
-
+			
 			for (auto &snekBit : vecCrawlie)
 			{
 				//snake bits move
@@ -293,10 +314,23 @@ public:
 				if (snekBit->head)
 					snekChkEat(snekBit);
 			}
-			//If the snake actually hit something, End Game
-			if (snekCollide())
-				return false;
+			//If the snake actually hit something, reset the game or exit
+			snekCollide();
+			//Reset the clock
+			countTime = 0;
 		}
+
+		if (snekDead && countTime > 1.0)
+		{
+			//For now, dying resets you
+			//reset();
+
+			//Works, but currently doesn't stop the game either.
+			if (GetKey(olc::Y).bPressed || GetKey(olc::Y).bHeld) reset();
+
+			countTime = 0.0;
+		}
+
 		//Draw the snake
 		for (auto &snekBit : vecCrawlie)
 			Draw(snekBit->pos.x, snekBit->pos.y, olc::WHITE);
@@ -312,7 +346,7 @@ public:
 			noms->newLoc((rand() % (ScreenWidth() - 2) + 1), (rand() % (ScreenHeight() - 2) + 1));
 		}
 		//increment the time for actual updates to occur
-		countTime++;
+		countTime += fElapsedTime;
 		//Clear out any turn orders that are no longer relevant, as the snake has already moved past the points
 		clearTurns();
 		//Keep playing!

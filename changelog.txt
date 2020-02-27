@@ -1,0 +1,16 @@
+v0.1.1:
+CHANGED - 
+countTime and cycleTime are now floats, a hell of a lot smaller, and countTime is now incremented by fElapsedTime
+Food collision algorithm now looks one step ahead of the snake, and therefore SHOULDN'T phase through walls, and corners technically cease being as much a problem
+
+v0.1.2
+ADDED - 
+game reset system - You hit things, you die. You die, you reset -- WIP!!
+
+FIXED - 
+wall collisions weren't happening in the right place
+
+v0.1.3
+FIXED - 
+game reset system now functions correctly
+minor bug when turning directly into grabbing food
