@@ -122,6 +122,9 @@ private:
 	olc::vi2d newDir;
 	//Pause the game if we're dead
 	bool snekDead = false;
+	std::string deathStringA =  "YOU LOST!\nYou got:\n";
+	std::string deathStringB = " food.\nPress Y \nto play \nagain!";
+	bool scoreFlag = true;
 
 	void reset()
 	{
@@ -216,6 +219,7 @@ private:
 			cycleTime -= 0.05;
 			if (cycleTime <= 0.25)
 				cycleTime = 0.25;
+			score++;
 		}
 	}
 
@@ -322,20 +326,28 @@ public:
 
 		if (snekDead && countTime > 1.0)
 		{
-			//For now, dying resets you
-			//reset();
-
+			//Draw 
+			//"YOU LOST! Your score was: xxx
+			// Press Y to play again!"
+			if (scoreFlag)
+			{
+				deathStringA += std::to_string(score);
+				scoreFlag = false;
+			}
+			DrawString(1, 1, (deathStringA + deathStringB), olc::RED);
 			//Works, but currently doesn't stop the game either.
 			if (GetKey(olc::Y).bPressed || GetKey(olc::Y).bHeld) reset();
 
 			countTime = 0.0;
 		}
 
+
 		//Draw the snake
 		for (auto &snekBit : vecCrawlie)
 			Draw(snekBit->pos.x, snekBit->pos.y, olc::WHITE);
 		//Draw the walls
-		DrawRect(0, 0, ScreenWidth()-1, ScreenHeight()-1, olc::BLUE);
+		DrawRect(0, 0, ScreenWidth() - 1, ScreenHeight() - 1, olc::BLUE);
+
 		//If food exists, draw it, otherwise create a new food. This gives a one frame delay on the food reappearing, WAI
 		if (noms->exists)
 		{
@@ -358,7 +370,7 @@ public:
 int main()
 {
 	Snek core;
-	if (core.Construct(32, 32, 8, 8))
+	if (core.Construct(64, 64, 8, 8))
 		core.Start();
 	return 0;
 }

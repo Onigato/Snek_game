@@ -14,3 +14,10 @@ v0.1.3
 FIXED - 
 game reset system now functions correctly
 minor bug when turning directly into grabbing food
+
+v0.1.4
+ADDED - 
+Score - Only visible on the game reset screen, but at least it's visible.
+
+CHANGED -
+Reset screen now includes instructions
